@@ -56,38 +56,63 @@ public class RequestHandler {
             readBytes -= 4;
         }
 
-        while (arrInd < arrLen && readBytes >= 8){
-            arr[arrInd] = buf.getLong();
-            readBytes -= 8;
-        }
-        arrInd = -1;
-        buf.flip();
-
-        key.cancel();
-        try {
-            key = conn.register(selector, SelectionKey.OP_WRITE);
-        } catch (ClosedChannelException e) {
-            System.out.println(e.getMessage());
-            Clean();
+        if (arrLen > -1) {
+            while (arrInd < arrLen && readBytes >= 8) {
+                arr[arrInd] = buf.getLong();
+                arrInd++;
+                readBytes -= 8;
+            }
+            buf.clear();
         }
 
+        if (arrInd == arrLen) {
+            System.out.println(arr[arrLen - 1]);
+
+            arrInd = -1;
+            buf.clear();
+
+            key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
+            key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
+        }
     }
 
-    void HandleWrite(){
-        if (arrInd == -1){
-            buf.putLong(arrLen);
-            buf.flip();
+    void HandleWrite() {
+        if (writeBytes > 0) {
             try {
+                buf.flip();
                 int n = conn.write(buf);
+                writeBytes -= n;
+                if (writeBytes == 0){
+                    buf.clear();
+                }
             } catch (IOException e) {
                 System.out.println(e.getMessage());
+                Clean();
+            }
+        } else {
+            if (arrInd == -1 && writeBytes + 4 < buf.limit()) {
+                buf.putInt(arrLen);
+                arrInd = 0;
+                writeBytes += 4;
+            }
+
+            if (arrInd > -1) {
+                while (arrInd < arrLen && writeBytes + 8 < buf.limit()) {
+                    buf.putLong(arr[arrInd]);
+                    arrInd++;
+                    writeBytes += 8;
+                }
+            }
+
+            if (arrInd == arrLen && writeBytes == 0) {
+                key.cancel();
                 Clean();
             }
         }
     }
 
     private void SendErrorMessage(ResponseCode status, String msg) {
-        buf.flip();
+        buf.clear();
         buf.putInt(status.getValue());
         buf.put(msg.getBytes());
         buf.flip();
@@ -98,11 +123,11 @@ public class RequestHandler {
             System.out.println(e.getMessage());
             Clean();
         }
-
     }
 
     private void Clean() {
         try {
+            System.out.println("Clean");
             buf = null;
             conn.close();
         } catch (IOException e) {

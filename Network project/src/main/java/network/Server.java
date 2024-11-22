@@ -26,6 +26,8 @@ public class Server {
                         handleAccept(conn, selector);
                     } else if (key.isReadable() && key.channel() instanceof SocketChannel conn) {
                         requestHanlers.get(conn).HandleRead();
+                    } else if (key.isWritable() && key.channel() instanceof SocketChannel conn){
+                        requestHanlers.get(conn).HandleWrite();
                     }
                 }
 
