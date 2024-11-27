@@ -2,46 +2,47 @@ package network;
 
 import java.io.IOException;
 import java.nio.ByteBuffer;
-import java.nio.channels.ClosedChannelException;
 import java.nio.channels.SelectionKey;
-import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
 
 public class RequestHandler {
+    // main fields
     private int threads = -1;
     private int arrLen = -1;
     private long[] arr;
     private int arrInd = 0;
-    private SocketChannel conn;
-    private SelectionKey key;
-    private Selector selector;
-    private ByteBuffer buf;
+
+    // dependencies
+    private final SocketChannel conn;
+    private final SelectionKey key;
+
+    // buffer fields
+    private final ByteBuffer buf;
     private int readBytes = 0;
     private int writeBytes = 0;
+    boolean statusCodeSend = false;
 
-    RequestHandler(SocketChannel conn, SelectionKey key, Selector selector) {
+    RequestHandler(SocketChannel conn, SelectionKey key) {
         this.conn = conn;
-        this.buf = ByteBuffer.allocate(64000);
+        this.buf = ByteBuffer.allocate(1024);
         this.key = key;
-        this.selector = selector;
     }
 
-    void HandleRead() {
+    boolean HandleRead() {
         try {
             int n = conn.read(buf);
             readBytes += n;
             buf.flip();
         } catch (IOException e) {
             System.out.println(e.getMessage());
-            Clean();
+            return false;
         }
 
         if (threads == -1 && readBytes >= 4) {
             threads = buf.getInt();
             if (!(1 <= threads && threads <= Limits.Threads)) {
                 SendErrorMessage(ResponseCode.INVALID_THREADS_NUMBER, "The thread limit is " + Limits.Threads);
-                Clean();
-                return;
+                return false;
             }
             readBytes -= 4;
         }
@@ -49,8 +50,7 @@ public class RequestHandler {
             arrLen = buf.getInt();
             if (!(1 <= arrLen && arrLen <= Limits.Elements)) {
                 SendErrorMessage(ResponseCode.INVALID_ELEMENTS_NUMBER, "The elements limit is " + Limits.Elements);
-                Clean();
-                return;
+                return false;
             }
             arr = new long[arrLen];
             readBytes -= 4;
@@ -72,24 +72,33 @@ public class RequestHandler {
             buf.clear();
 
             key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
-            key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
+            new WorkerPool(threads, arr, this).Run();
         }
+        return true;
     }
 
-    void HandleWrite() {
+    boolean HandleWrite() {
         if (writeBytes > 0) {
             try {
                 buf.flip();
+
                 int n = conn.write(buf);
                 writeBytes -= n;
-                if (writeBytes == 0){
+                if (writeBytes == 0) {
                     buf.clear();
                 }
             } catch (IOException e) {
                 System.out.println(e.getMessage());
-                Clean();
+                return false;
             }
         } else {
+
+            if (!statusCodeSend){
+                buf.put(ResponseCode.OK.getValue());
+                writeBytes++;
+                statusCodeSend = true;
+            }
+
             if (arrInd == -1 && writeBytes + 4 < buf.limit()) {
                 buf.putInt(arrLen);
                 arrInd = 0;
@@ -106,33 +115,27 @@ public class RequestHandler {
 
             if (arrInd == arrLen && writeBytes == 0) {
                 key.cancel();
-                Clean();
             }
         }
+        return true;
+    }
+
+    void ProcessReady(){
+        key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
     }
 
     private void SendErrorMessage(ResponseCode status, String msg) {
-        buf.clear();
-        buf.putInt(status.getValue());
-        buf.put(msg.getBytes());
-        buf.flip();
-        try {
-            conn.write(buf);
+        if (!statusCodeSend) {
+            buf.clear();
+            buf.put(status.getValue());
+            buf.put(msg.getBytes());
             buf.flip();
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-            Clean();
+            try {
+                conn.write(buf);
+            } catch (IOException e) {
+                System.out.println(e.getMessage());
+            }
+            statusCodeSend = true;
         }
     }
-
-    private void Clean() {
-        try {
-            System.out.println("Clean");
-            buf = null;
-            conn.close();
-        } catch (IOException e) {
-            System.out.println(e.getMessage());
-        }
-    }
-
 }

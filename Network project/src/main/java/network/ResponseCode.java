@@ -7,13 +7,13 @@ public enum ResponseCode {
     INVALID_ELEMENT(3),
     ERROR_SERVER(4);
 
-    private int value;
+    private byte value;
 
     private ResponseCode(int value){
-        this.value = value;
+        this.value = (byte)value;
     }
 
-    int getValue() {
+    byte getValue() {
         return value;
     }
 }
