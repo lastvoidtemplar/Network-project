@@ -3,7 +3,12 @@ package network;
 import java.io.IOException;
 import java.nio.ByteBuffer;
 import java.nio.channels.SelectionKey;
+import java.nio.channels.Selector;
 import java.nio.channels.SocketChannel;
+import java.util.HashMap;
+import java.util.concurrent.BlockingQueue;
+import java.util.concurrent.LinkedBlockingQueue;
+import java.util.concurrent.Semaphore;
 
 public class RequestHandler {
     // main fields
@@ -15,20 +20,22 @@ public class RequestHandler {
     // dependencies
     private final SocketChannel conn;
     private final SelectionKey key;
+    private final Selector selector;
 
     // buffer fields
     private final ByteBuffer buf;
     private int readBytes = 0;
     private int writeBytes = 0;
-    boolean statusCodeSend = false;
+    private boolean statusCodeSend = false;
 
-    RequestHandler(SocketChannel conn, SelectionKey key) {
+    RequestHandler(SocketChannel conn, SelectionKey key, Selector selector) {
         this.conn = conn;
         this.buf = ByteBuffer.allocate(1024);
         this.key = key;
+        this.selector = selector;
     }
 
-    boolean HandleRead() {
+    public boolean HandleRead() {
         try {
             int n = conn.read(buf);
             readBytes += n;
@@ -72,12 +79,25 @@ public class RequestHandler {
             buf.clear();
 
             key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
-            new WorkerPool(threads, arr, this).Run();
+            SpawnThreads();
+            //key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
         }
         return true;
     }
 
-    boolean HandleWrite() {
+    private  void SpawnThreads(){
+        HashMap<Integer, Node> map = new HashMap<>();
+        Semaphore sem = new Semaphore(1);
+        BlockingQueue<Task> queue = new LinkedBlockingQueue<>();
+        Integer rootId = IdGenerator.GenerateId();
+        queue.add( new Task(rootId, (byte)0, 0, arrLen));
+        map.put(rootId, new Node(-1, 0, arrLen));
+        for (int i = 0; i < threads; i++) {
+            new WorkerThread(threads, arr, this, queue, map, sem).start();
+        }
+    }
+
+    public boolean HandleWrite() {
         if (writeBytes > 0) {
             try {
                 buf.flip();
@@ -120,8 +140,9 @@ public class RequestHandler {
         return true;
     }
 
-    void ProcessReady(){
+    public void ProcessReady(){
         key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
+        selector.wakeup();
     }
 
     private void SendErrorMessage(ResponseCode status, String msg) {

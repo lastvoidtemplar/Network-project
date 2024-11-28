@@ -54,7 +54,7 @@ public class Server {
         try {
             conn.configureBlocking(false);
             var key = conn.register(selector, SelectionKey.OP_READ);
-            requestHanlers.put(conn, new RequestHandler(conn, key));
+            requestHanlers.put(conn, new RequestHandler(conn, key, selector));
         } catch (IOException e) {
             System.out.println(e.getMessage());
         }
