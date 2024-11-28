@@ -2,5 +2,5 @@ package network;
 
 public class Limits {
     static final int Threads = 8;
-    static final int Elements = 50_000_000;
+    static final int Elements = 60_000_000;
 }

@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
 
+
 public class WorkerThread extends Thread {
+    private final int threshold = 32;
     private final int id;
     private final RequestHandler handler;
     private final int threads;
@@ -26,6 +28,7 @@ public class WorkerThread extends Thread {
 
     @Override
     public void run() {
+        int merges = 0;
         while (true) {
             Task task;
             try {
@@ -36,9 +39,9 @@ public class WorkerThread extends Thread {
             }
 
             if (task.stage == 0) {
-                if (task.right - task.left == 1) {
+                if (task.right - task.left <= threshold) {
                     try {
-                        Merge(task);
+                        Insertion(task);
                     } catch (InterruptedException e) {
                         Log("Error processing single-element array: " + e.getMessage());
                         return;
@@ -54,22 +57,32 @@ public class WorkerThread extends Thread {
             } else if (task.stage == 1) {
                 try {
                     Merge(task);
+                    merges++;
                 } catch (InterruptedException e) {
                     Log("Error merging arrays: " + e.getMessage());
                     return;
                 }
             } else {
-                Log("Shutdown task is receive. The thread is closed");
+                Log("Shutdown task is receive. This thread made " + merges + " merges. The thread is closed");
                 return;
             }
         }
     }
 
+    private void insertion(int left, int right) {
+        for (int i = left + 1; i < right; i++) {
+            long tmp = arr[i];
+            int j = i - 1;
+            while (j >= left && tmp < arr[j]) {
+                arr[j + 1] = arr[j];
+                j--;
+            }
+            arr[j + 1] = tmp;
+        }
+    }
+
     private void merge(int left, int right) {
         int n = right - left;
-        if (n == 1) {
-            return;
-        }
 
         long[] tmp = new long[n];
 
@@ -107,8 +120,17 @@ public class WorkerThread extends Thread {
         }
     }
 
+    private void Insertion(Task task) throws InterruptedException {
+        insertion(task.left, task.right);
+        SpawnMerge(task);
+    }
+
     private void Merge(Task task) throws InterruptedException {
         merge(task.left, task.right);
+        SpawnMerge(task);
+    }
+
+    private void SpawnMerge(Task task) throws InterruptedException {
         mutex.acquire();
         Node parent = parents.get(task.id);
         mutex.release();
