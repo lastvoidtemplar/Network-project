@@ -6,18 +6,19 @@ import java.nio.channels.*;
 import java.util.HashMap;
 
 public class Server {
-    private HashMap<SocketChannel, RequestHandler> requestHanlers;
+    private final HashMap<SocketChannel, RequestHandler> requestHanlers;
 
     Server() {
         requestHanlers = new HashMap<>();
     }
 
-    void Listen(int port) {
+    public void Listen(int port) {
         try (var socket = ServerSocketChannel.open(); var selector = Selector.open()) {
             socket.configureBlocking(false);
             socket.bind(new InetSocketAddress(port));
             socket.register(selector, SelectionKey.OP_ACCEPT);
-            System.out.println("Server is listening");
+            Log("Server is listening...");
+            int connInd = 1;
             while (true) {
                 if (selector.select() == 0) {
                     continue;
@@ -27,16 +28,21 @@ public class Server {
                     if (key.isAcceptable()) {
                         // we have only one acceptable key possible which is the socket
                         var conn = socket.accept();
-                        handleAccept(conn, selector);
+                        handleAccept(conn, selector, connInd);
+                        connInd++;
                     } else if (key.isReadable() && key.channel() instanceof SocketChannel conn) {
-                        if (!requestHanlers.get(conn).HandleRead()){
+                        var handler = requestHanlers.get(conn);
+                        if (!handler.HandleRead()) {
                             requestHanlers.remove(conn);
                             conn.close();
+                            Log("Connection id=" + handler.GetId() + " is closed");
                         }
                     } else if (key.isWritable() && key.channel() instanceof SocketChannel conn) {
-                        if (!requestHanlers.get(conn).HandleWrite()){
+                        var handler = requestHanlers.get(conn);
+                        if (!handler.HandleWrite()) {
                             requestHanlers.remove(conn);
                             conn.close();
+                            Log("Connection id=" + handler.GetId() + " is closed");
                         }
                     }
                 }
@@ -44,20 +50,33 @@ public class Server {
                 selector.selectedKeys().clear();
             }
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+            Log("Server failed to start: " + e.getMessage());
         }
     }
 
 
-    private void handleAccept(SocketChannel conn, Selector selector) {
-        System.out.println("New connection accepted (" + conn.socket().getInetAddress() + ":" + conn.socket().getPort() + ")");
+    private void handleAccept(SocketChannel conn, Selector selector, int id) {
+        Log("New connection accepted id=" + id + "(" + conn.socket().getInetAddress() + ":" + conn.socket().getPort() + ")");
+        SelectionKey key = null;
         try {
             conn.configureBlocking(false);
-            var key = conn.register(selector, SelectionKey.OP_READ);
-            requestHanlers.put(conn, new RequestHandler(conn, key, selector));
+            key = conn.register(selector, SelectionKey.OP_READ);
         } catch (IOException e) {
-            System.out.println(e.getMessage());
+            Log("Connection id=" + id + " setup  error: " + e.getMessage());
+            if (key != null) {
+                key.cancel();
+            }
+            try {
+                conn.close();
+            } catch (IOException ex) {
+                Log("Could not close the connection id=" + id + ": " + e.getMessage());
+            }
+            return;
         }
+        requestHanlers.put(conn, new RequestHandler(id, conn, key, selector));
+    }
 
+    private void Log(String message) {
+        System.out.println("[Server connection] " + message);
     }
 }
