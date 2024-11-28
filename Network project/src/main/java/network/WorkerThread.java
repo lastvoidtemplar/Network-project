@@ -111,6 +111,8 @@ public class WorkerThread extends Thread {
         merge(task.left, task.right);
         mutex.acquire();
         Node parent = parents.get(task.id);
+        mutex.release();
+        parent.mutex.acquire();
         if (parent.id == -1) {
             Log("The work is complete. Sending shutdown task to every thread");
             handler.ProcessReady();
@@ -123,7 +125,7 @@ public class WorkerThread extends Thread {
             queue.put(new Task(parent.id, (byte) 1, parent.left, parent.right));
         }
         parent.readyChildren++;
-        mutex.release();
+        parent.mutex.release();
     }
 
     private void SpawnChildren(Task task) throws InterruptedException {
@@ -131,7 +133,6 @@ public class WorkerThread extends Thread {
         Integer id2 = IdGenerator.GenerateId();
 
         mutex.acquire();
-
         Node node = new Node(task.id, task.left, task.right);
         parents.put(id1, node);
         parents.put(id2, node);
