@@ -119,12 +119,10 @@ public class WorkerThread extends Thread {
             }
             return;
         }
-        if (parent.readyChilds == 0) {
-            parent.readyChilds++;
-        } else {
+        if (parent.readyChildren != 0) {
             queue.put(new Task(parent.id, (byte) 1, parent.left, parent.right));
-            parent.readyChilds++;
         }
+        parent.readyChildren++;
         mutex.release();
     }
 

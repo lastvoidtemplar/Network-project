@@ -6,10 +6,10 @@ import java.nio.channels.*;
 import java.util.HashMap;
 
 public class Server {
-    private final HashMap<SocketChannel, RequestHandler> requestHanlers;
+    private final HashMap<SocketChannel, RequestHandler> requestHandlers;
 
     Server() {
-        requestHanlers = new HashMap<>();
+        requestHandlers = new HashMap<>();
     }
 
     public void Listen(int port) {
@@ -31,22 +31,21 @@ public class Server {
                         handleAccept(conn, selector, connInd);
                         connInd++;
                     } else if (key.isReadable() && key.channel() instanceof SocketChannel conn) {
-                        var handler = requestHanlers.get(conn);
+                        var handler = requestHandlers.get(conn);
                         if (!handler.HandleRead()) {
-                            requestHanlers.remove(conn);
+                            requestHandlers.remove(conn);
                             conn.close();
                             Log("Connection id=" + handler.GetId() + " is closed");
                         }
                     } else if (key.isWritable() && key.channel() instanceof SocketChannel conn) {
-                        var handler = requestHanlers.get(conn);
+                        var handler = requestHandlers.get(conn);
                         if (!handler.HandleWrite()) {
-                            requestHanlers.remove(conn);
+                            requestHandlers.remove(conn);
                             conn.close();
                             Log("Connection id=" + handler.GetId() + " is closed");
                         }
                     }
                 }
-
                 selector.selectedKeys().clear();
             }
         } catch (IOException e) {
@@ -73,7 +72,7 @@ public class Server {
             }
             return;
         }
-        requestHanlers.put(conn, new RequestHandler(id, conn, key, selector));
+        requestHandlers.put(conn, new RequestHandler(id, conn, key, selector));
     }
 
     private void Log(String message) {

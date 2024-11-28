@@ -25,8 +25,6 @@ public class RequestHandler {
 
     // buffer fields
     private final ByteBuffer buf;
-    private int readBytes = 0;
-    private int writeBytes = 0;
     private boolean statusCodeSend = false;
 
     RequestHandler(int id, SocketChannel conn, SelectionKey key, Selector selector) {
@@ -39,39 +37,34 @@ public class RequestHandler {
 
     public boolean HandleRead() {
         try {
-            int n = conn.read(buf);
-            readBytes += n;
+            conn.read(buf);
             buf.flip();
         } catch (IOException e) {
             Log("Error reading from the connection: " + e.getMessage());
             return false;
         }
 
-        if (threads == -1 && readBytes >= 4) {
+        if (threads == -1 && buf.remaining() >= 4) {
             threads = buf.getInt();
             if (!(1 <= threads && threads <= Limits.Threads)) {
                 SendErrorMessage(ResponseCode.INVALID_THREADS_NUMBER, "The thread limit is " + Limits.Threads);
                 return false;
             }
-            readBytes -= 4;
         }
-        if (arrLen == -1 && readBytes >= 4) {
+        if (arrLen == -1 && buf.remaining() >= 4) {
             arrLen = buf.getInt();
             if (!(1 <= arrLen && arrLen <= Limits.Elements)) {
                 SendErrorMessage(ResponseCode.INVALID_ARRAY_LENGTH, "The elements limit is " + Limits.Elements);
                 return false;
             }
             arr = new long[arrLen];
-            readBytes -= 4;
         }
 
         if (arrLen > -1) {
-            while (arrInd < arrLen && readBytes >= 8) {
+            while (arrInd < arrLen && buf.remaining() >= 8) {
                 arr[arrInd] = buf.getLong();
                 arrInd++;
-                readBytes -= 8;
             }
-            buf.clear();
         }
 
         if (arrInd == arrLen) {
@@ -82,8 +75,11 @@ public class RequestHandler {
 
             key.interestOps(key.interestOps() & ~SelectionKey.OP_READ);
             SpawnThreads();
+            return true;
             //key.interestOps(key.interestOps() | SelectionKey.OP_WRITE);
         }
+
+        buf.compact();
         return true;
     }
 
@@ -101,15 +97,12 @@ public class RequestHandler {
     }
 
     public boolean HandleWrite() {
-        if (writeBytes > 0) {
+        if (buf.position() > 0) {
             try {
                 buf.flip();
 
-                int n = conn.write(buf);
-                writeBytes -= n;
-                if (writeBytes == 0) {
-                    buf.clear();
-                }
+                conn.write(buf);
+                buf.compact();
             } catch (IOException e) {
                 Log("Error writing to the connection: " + e.getMessage());
                 return false;
@@ -119,25 +112,22 @@ public class RequestHandler {
             if (!statusCodeSend) {
                 Log("Status code is OK");
                 buf.put(ResponseCode.OK.getValue());
-                writeBytes++;
                 statusCodeSend = true;
             }
 
-            if (arrInd == -1 && writeBytes + 4 < buf.limit()) {
+            if (arrInd == -1 && buf.remaining() >= 4) {
                 buf.putInt(arrLen);
                 arrInd = 0;
-                writeBytes += 4;
             }
 
             if (arrInd > -1) {
-                while (arrInd < arrLen && writeBytes + 8 < buf.limit()) {
+                while (arrInd < arrLen &&  buf.remaining() >= 8) {
                     buf.putLong(arr[arrInd]);
                     arrInd++;
-                    writeBytes += 8;
                 }
             }
 
-            if (arrInd == arrLen && writeBytes == 0) {
+            if (arrInd == arrLen && buf.position() == 0) {
                 Log("The data is send successfully");
                 key.cancel();
                 return false;
