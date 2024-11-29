@@ -1,4 +1,4 @@
-package network;
+package server;
 
 public enum ResponseCode {
     OK(0),

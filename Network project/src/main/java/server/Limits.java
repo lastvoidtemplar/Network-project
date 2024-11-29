@@ -1,4 +1,4 @@
-package network;
+package server;
 
 public class Limits {
     static final int Threads = 8;

@@ -1,4 +1,4 @@
-package network;
+package server;
 
 // Data class so properties
 public class Task {
