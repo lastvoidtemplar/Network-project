@@ -1,12 +1,15 @@
 package server;
 
+import java.util.Arrays;
 import java.util.HashMap;
+import java.util.Timer;
 import java.util.concurrent.BlockingQueue;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadLocalRandom;
 
 
 public class WorkerThread extends Thread {
-    private final int threshold = 32;
+    private final int threshold;
     private final int id;
     private final RequestHandler handler;
     private final int threads;
@@ -24,6 +27,7 @@ public class WorkerThread extends Thread {
         this.queue = queue;
         this.parents = map;
         this.mutex = mutex;
+        threshold = 10000;
     }
 
     @Override
@@ -41,14 +45,14 @@ public class WorkerThread extends Thread {
             if (task.stage == 0) {
                 if (task.right - task.left <= threshold) {
                     try {
-                        Insertion(task);
+                        SingleThreadSort(task);
                     } catch (InterruptedException e) {
                         Log("Error processing single-element array: " + e.getMessage());
                         return;
                     }
                 } else {
                     try {
-                        SpawnChildren(task);
+                        Divide(task);
                     } catch (InterruptedException e) {
                         Log("Error splitting array into two arrays: " + e.getMessage());
                         return;
@@ -120,9 +124,46 @@ public class WorkerThread extends Thread {
         }
     }
 
-    private void Insertion(Task task) throws InterruptedException {
-        insertion(task.left, task.right);
+    private void SingleThreadSort(Task task) throws InterruptedException {
+        QuickSort(task.left, task.right);
         SpawnMerge(task);
+    }
+
+    private void swap(int i, int j){
+        long t = arr[i];
+        arr[i] = arr[j];
+        arr[j] = t;
+    }
+
+    private int partition(int left, int right){
+        int ran = ThreadLocalRandom.current().nextInt(left, right);
+        swap(ran, right - 1);
+        long p = arr[right-1];
+        int l = left;
+        int r = right -2;
+
+        while (l <= r){
+            if (arr[l] > p){
+                swap(l, r);
+                r--;
+            } else {
+                l++;
+            }
+        }
+
+        swap(l, right -1);
+        return  l;
+    }
+
+    private void QuickSort(int left, int right){
+        if (right - left  <= 32){
+            insertion(left, right);
+            return;
+        }
+
+        int p = partition(left, right);
+        QuickSort(left, p);
+        QuickSort(p+1, right);
     }
 
     private void Merge(Task task) throws InterruptedException {
@@ -150,7 +191,7 @@ public class WorkerThread extends Thread {
         parent.mutex.release();
     }
 
-    private void SpawnChildren(Task task) throws InterruptedException {
+    private void Divide(Task task) throws InterruptedException {
         Integer id1 = IdGenerator.GenerateId();
         Integer id2 = IdGenerator.GenerateId();
 
