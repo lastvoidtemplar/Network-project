@@ -192,6 +192,7 @@ public class SingleClient implements Client {
 
 
         if (buf.position() + 4 >buf.limit()) {
+            buf.compact();
             try {
                 int n = conn.read(buf);
                 if (n == -1) {
@@ -229,6 +230,7 @@ public class SingleClient implements Client {
 
         for (int i = 0; i < len2; i++) {
             if (buf.position() + 8 > buf.limit()) {
+                buf.compact();
                 try {
                     int n = conn.read(buf);
                     if (n == -1) {
