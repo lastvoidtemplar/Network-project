@@ -27,7 +27,7 @@ public class WorkerThread extends Thread {
         this.queue = queue;
         this.parents = map;
         this.mutex = mutex;
-        threshold = 10000;
+        threshold = 100;
     }
 
     @Override

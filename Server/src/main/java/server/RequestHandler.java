@@ -37,7 +37,11 @@ public class RequestHandler {
 
     public boolean HandleRead() {
         try {
-            conn.read(buf);
+            int n = conn.read(buf);
+            if (n == -1){
+                Log("Client disconnected!");
+                return false;
+            }
             buf.flip();
         } catch (IOException e) {
             Log("Error reading from the connection: " + e.getMessage());
@@ -57,7 +61,12 @@ public class RequestHandler {
                 SendErrorMessage(ResponseCode.INVALID_ARRAY_LENGTH, "The elements limit is " + Limits.Elements);
                 return false;
             }
-            arr = new long[arrLen];
+            try {
+                arr = new long[arrLen];
+            } catch (OutOfMemoryError e){
+                SendErrorMessage(ResponseCode.SERVER_ERROR, "Out of memory");
+                return false;
+            }
         }
 
         if (arrLen > -1) {
@@ -101,7 +110,11 @@ public class RequestHandler {
             try {
                 buf.flip();
 
-                conn.write(buf);
+                int n = conn.write(buf);
+                if (n == -1){
+                    Log("Client disconnected!");
+                    return false;
+                }
                 buf.compact();
             } catch (IOException e) {
                 Log("Error writing to the connection: " + e.getMessage());
