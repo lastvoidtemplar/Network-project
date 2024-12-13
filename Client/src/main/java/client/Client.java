@@ -1,5 +1,5 @@
 package client;
 
 public interface Client {
-    public void Run();
+    public long Run();
 }
