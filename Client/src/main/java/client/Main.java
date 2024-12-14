@@ -1,14 +1,13 @@
 package client;
 
 import java.io.File;
-import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.channels.SocketChannel;
 import java.nio.channels.UnresolvedAddressException;
 import java.util.InputMismatchException;
+import java.util.Random;
 import java.util.Scanner;
-import java.util.concurrent.TimeUnit;
 
 public class Main {
     private static void printClientOptions() {
@@ -21,7 +20,7 @@ public class Main {
     }
 
     private static int readClientOption(Scanner scanner) {
-        int option = 0;
+        int option;
         do {
             printClientOptions();
             try {
@@ -32,7 +31,7 @@ public class Main {
                 continue;
             }
 
-            if (1 <= option && option <= 3) {
+            if (1 <= option && option <= 4) {
                 break;
             } else {
                 System.out.println("Invalid option number! Please choose again!");
@@ -43,13 +42,13 @@ public class Main {
     }
 
     private static int readClientNumber(Scanner scanner) {
-        int clients = 0;
+        int clients;
         do {
             System.out.println("Enter the number of clients!");
             try {
                 clients = scanner.nextInt();
             } catch (InputMismatchException e) {
-                System.out.println("The number of client expects the options as number!");
+                System.out.println("The number of client expects a number!");
                 scanner.next();
                 continue;
             }
@@ -138,7 +137,7 @@ public class Main {
                 continue;
             }
 
-            int port = 0;
+            int port;
             try {
                 port = Integer.parseInt(inp[1]);
             } catch (NumberFormatException e) {
@@ -175,7 +174,7 @@ public class Main {
                 continue;
             }
 
-            int port = 0;
+            int port;
             try {
                 port = Integer.parseInt(inp[1]);
             } catch (NumberFormatException e) {
@@ -212,90 +211,36 @@ public class Main {
         return arr;
     }
 
-
-    private static long[] getRequestArr(File file) {
-        Scanner fileScanner;
-        try {
-            fileScanner = new Scanner(file);
-        } catch (FileNotFoundException e) {
-            System.out.println("File not found!");
-            return null;
-        }
-        int threads;
-        try {
-            threads = fileScanner.nextInt();
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid file format! First thing in the file must be the number of threads!");
-            return null;
-        }
-
+    private static int readLength(Scanner scanner) {
         int len;
-        try {
-            len = fileScanner.nextInt();
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid file format! Second thing in the file must be the length of the array!");
-            return null;
-        }
-
-        long[] arr;
-        try {
-            arr = new long[len];
-        } catch (OutOfMemoryError e) {
-            System.out.println("Out of memory");
-            return null;
-        }
-
-        long el = 0;
-        for (int i = 0; i < len; i++) {
+        do {
+            System.out.println("Enter the array length!");
             try {
-                el = fileScanner.nextLong();
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid file format! The element with index " + i + " in the file must be a number!");
-                return null;
+                len = scanner.nextInt();
+            } catch (InputMismatchException e) {
+                System.out.println("The array length expects a number!");
+                scanner.next();
+                continue;
             }
-            arr[i] = el;
-        }
 
-        return arr;
+            if (1 <= len && len <= 10_000_000) {
+                break;
+            } else {
+                System.out.println("Invalid array length! Please choose number between 1 and 10_000_000!");
+            }
+        } while (true);
+        System.out.println("Valid input!\n---");
+        return len;
     }
 
-    private static long[] getResponseArr(File file) {
-        Scanner fileScanner;
-        try {
-            fileScanner = new Scanner(file);
-        } catch (FileNotFoundException e) {
-            System.out.println("File not found!");
-            return null;
-        }
-
-        int len;
-        try {
-            len = fileScanner.nextInt();
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid file format! Second thing in the file must be the length of the array!");
-            return null;
-        }
-
-        long[] arr;
-        try {
-            arr = new long[len];
-        } catch (OutOfMemoryError e) {
-            System.out.println("Out of memory");
-            return null;
-        }
-
-        long el = 0;
+    private static long[] randomArr(int len){
+        Random rnd = new Random();
+        long[] arr = new long[len];
         for (int i = 0; i < len; i++) {
-            try {
-                el = fileScanner.nextLong();
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid file format! The element with index " + i + " in the file must be a number!");
-                return null;
-            }
-            arr[i] = el;
-        }
+            arr[i] = rnd.nextLong();
 
-        return arr;
+        }
+        return  arr;
     }
 
     public static void main(String[] args) {
@@ -329,7 +274,7 @@ public class Main {
                     clientNumber = readClientNumber(scanner);
                     SocketChannel[] conns = setupSocketArray(scanner, clientNumber);
 
-                    if (conns == null){
+                    if (conns == null) {
                         return;
                     }
 
@@ -337,11 +282,11 @@ public class Main {
                     clients = new SingleClient[clientNumber];
 
                     for (int i = 0; i < clientNumber; i++) {
-                        clients[i] = new SingleClient("[Client " + i + "]", conns[i], requestFile, new File("tmp"+i+".txt"));
+                        clients[i] = new SingleClient("[Client " + i + "]", conns[i], requestFile, new File("tmp" + i + ".txt"));
                     }
 
-                    BenchClient benchClient = new BenchClient(clients);
-                    benchClient.Run();
+                    AggregateClient aggregateClient = new AggregateClient(clients);
+                    aggregateClient.Run();
                     break;
                 case 3:
                     clientNumber = readClientNumber(scanner);
@@ -355,6 +300,15 @@ public class Main {
 
                     MultiCllient multClient = new MultiCllient(clients);
                     multClient.Run();
+                    break;
+                case 4:
+                    clientNumber = readClientNumber(scanner);
+                    conns = setupSocketArray(scanner, clientNumber);
+                    int len = readLength(scanner);
+                    long[] requestArr = randomArr(len);
+
+                    BenchClient benchClient = new BenchClient(requestArr, conns);
+                    benchClient.Run();
                     break;
                 default:
                     break;

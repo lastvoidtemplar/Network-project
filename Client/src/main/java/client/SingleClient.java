@@ -75,7 +75,7 @@ public class SingleClient{
         }
 
         buf.compact();
-        long el = 0;
+        long el;
         for (int i = 0; i < len; i++) {
             try {
                 el = fileScanner.nextLong();
@@ -96,8 +96,6 @@ public class SingleClient{
                 } catch (IOException e) {
                     Log("Error while sending elements: " + e.getMessage());
                     return -1;
-                } catch (Exception e) {
-                    Log("some thing");
                 }
                 buf.compact();
             }
@@ -131,7 +129,6 @@ public class SingleClient{
 
 
         if (buf.position() + 4 > buf.limit()) {
-            buf.compact();
             try {
                 int n = conn.read(buf);
                 if (n == -1) {
