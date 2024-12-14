@@ -13,9 +13,11 @@ import java.util.concurrent.TimeUnit;
 public class Main {
     private static void printClientOptions() {
         System.out.println("Choose client option:");
-        System.out.println("1.  Run single client with given file with the request params.");
-        System.out.println("2.  Run multiple clients in parallel with given file and calculate min/average/max");
-        System.out.println("3.  Run multiple clients in in sequence(noisy neighbor) with large array and compare the time for 1..N threads");
+        System.out.println("1.  Run single client with given request file.");
+        System.out.println("1.  Run multiple clients in parallel with given request file and display info about min/arg/max.");
+        System.out.println("3.  Run multiple clients in parallel with given request file");
+        System.out.println("4.  Run multiple clients in in sequence(noisy neighbor) with large array and compare the time for 1..N threads");
+        System.out.println("---");
     }
 
     private static int readClientOption(Scanner scanner) {
@@ -36,7 +38,30 @@ public class Main {
                 System.out.println("Invalid option number! Please choose again!");
             }
         } while (true);
+        System.out.println("Valid input!\n---");
         return option;
+    }
+
+    private static int readClientNumber(Scanner scanner) {
+        int clients = 0;
+        do {
+            System.out.println("Enter the number of clients!");
+            try {
+                clients = scanner.nextInt();
+            } catch (InputMismatchException e) {
+                System.out.println("The number of client expects the options as number!");
+                scanner.next();
+                continue;
+            }
+
+            if (1 <= clients && clients <= 15) {
+                break;
+            } else {
+                System.out.println("Invalid number of client! Please choose number between 1 and 15!");
+            }
+        } while (true);
+        System.out.println("Valid input!\n---");
+        return clients;
     }
 
     private static File setupRequestFile(Scanner scanner) {
@@ -64,11 +89,12 @@ public class Main {
 
             break;
         } while (true);
+        System.out.println("Valid input!\n---");
         return file;
     }
 
     private static File setupResponseFile(Scanner scanner) {
-        File file ;
+        File file;
 
         do {
             System.out.println("Enter the path of a response file:");
@@ -96,6 +122,7 @@ public class Main {
 
             break;
         } while (true);
+        System.out.println("Valid input!\n---");
         return file;
     }
 
@@ -131,10 +158,62 @@ public class Main {
 
             break;
         } while (true);
+        System.out.println("Valid input!\n---");
         return conn;
     }
 
-    private static long[] getRequestArr(File file){
+    private static SocketChannel[] setupSocketArray(Scanner scanner, int clientNumber) {
+        SocketChannel[] arr = new SocketChannel[clientNumber];
+        SocketChannel conn;
+        do {
+            System.out.println("Enter the address of server(hostname:port)");
+            String addr = scanner.next();
+            String[] inp = addr.split(":");
+
+            if (inp.length != 2) {
+                System.out.println("Invalid format for the server address");
+                continue;
+            }
+
+            int port = 0;
+            try {
+                port = Integer.parseInt(inp[1]);
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid format for the server address");
+                continue;
+            }
+
+            try {
+                conn = SocketChannel.open(new InetSocketAddress(inp[0], port));
+            } catch (UnresolvedAddressException e) {
+                System.out.println("Unknown host(ip)! Try entering the different server address!");
+                continue;
+            } catch (IOException e) {
+                System.out.println("Wrong port! Connection refuse! Try entering the different server address!");
+                continue;
+            }
+
+            arr[0] = conn;
+            for (int i = 1; i < clientNumber; i++) {
+                try {
+                    arr[i] = SocketChannel.open(new InetSocketAddress(inp[0], port));
+                } catch (UnresolvedAddressException e) {
+                    System.out.println("Unknown host(ip)! Try entering the different server address!");
+                    return null;
+                } catch (IOException e) {
+                    System.out.println("Wrong port! Connection refuse! Try entering the different server address!");
+                    return null;
+                }
+            }
+
+            break;
+        } while (true);
+        System.out.println("Valid input!\n---");
+        return arr;
+    }
+
+
+    private static long[] getRequestArr(File file) {
         Scanner fileScanner;
         try {
             fileScanner = new Scanner(file);
@@ -161,7 +240,7 @@ public class Main {
         long[] arr;
         try {
             arr = new long[len];
-        } catch (OutOfMemoryError e){
+        } catch (OutOfMemoryError e) {
             System.out.println("Out of memory");
             return null;
         }
@@ -180,7 +259,7 @@ public class Main {
         return arr;
     }
 
-    private static long[] getResponseArr(File file){
+    private static long[] getResponseArr(File file) {
         Scanner fileScanner;
         try {
             fileScanner = new Scanner(file);
@@ -200,7 +279,7 @@ public class Main {
         long[] arr;
         try {
             arr = new long[len];
-        } catch (OutOfMemoryError e){
+        } catch (OutOfMemoryError e) {
             System.out.println("Out of memory");
             return null;
         }
@@ -224,28 +303,58 @@ public class Main {
         int option = readClientOption(scanner);
 
         try {
+            SocketChannel conn;
+            int clientNumber = 0;
+            File requestFile;
+            File responseFile;
+            SingleClient[] clients;
+
             switch (option) {
                 case 1:
-                    SocketChannel conn = setupSocket(scanner);
-                    File requestFile = setupRequestFile(scanner);
-                    File responseFile = setupResponseFile(scanner);
-                    Client client = new SingleClient(scanner, conn, requestFile, responseFile);
+                    conn = setupSocket(scanner);
+                    requestFile = setupRequestFile(scanner);
+                    responseFile = setupResponseFile(scanner);
+                    SingleClient client = new SingleClient("[Client 1]", conn, requestFile, responseFile);
+
                     long time = client.Run();
-                    if (time == -1){
+
+                    if (time == -1) {
                         System.out.println("Failed the benchmark");
-                        return;
-                    }
-                    long[] requestArr = getRequestArr(requestFile);
-                    long[] responseArr = getResponseArr(responseFile);
-
-                    ResultChecker checker = new ResultChecker(requestArr, responseArr);
-
-                    if (!checker.IsCorrect()){
-                        System.out.println("The response array is not correct");
                         return;
                     }
 
                     System.out.println(time);
+                    break;
+                case 2:
+                    clientNumber = readClientNumber(scanner);
+                    SocketChannel[] conns = setupSocketArray(scanner, clientNumber);
+
+                    if (conns == null){
+                        return;
+                    }
+
+                    requestFile = setupRequestFile(scanner);
+                    clients = new SingleClient[clientNumber];
+
+                    for (int i = 0; i < clientNumber; i++) {
+                        clients[i] = new SingleClient("[Client " + i + "]", conns[i], requestFile, new File("tmp"+i+".txt"));
+                    }
+
+                    BenchClient benchClient = new BenchClient(clients);
+                    benchClient.Run();
+                    break;
+                case 3:
+                    clientNumber = readClientNumber(scanner);
+                    clients = new SingleClient[clientNumber];
+                    for (int i = 0; i < clientNumber; i++) {
+                        conn = setupSocket(scanner);
+                        requestFile = setupRequestFile(scanner);
+                        responseFile = setupResponseFile(scanner);
+                        clients[i] = new SingleClient("[Client " + i + "]", conn, requestFile, responseFile);
+                    }
+
+                    MultiCllient multClient = new MultiCllient(clients);
+                    multClient.Run();
                     break;
                 default:
                     break;

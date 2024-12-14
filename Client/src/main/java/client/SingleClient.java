@@ -8,33 +8,38 @@ import java.nio.ByteBuffer;
 import java.nio.channels.SocketChannel;
 import java.util.Scanner;
 
-public class SingleClient implements Client {
-    private final Scanner scanner;
+public class SingleClient{
     private final SocketChannel conn;
     private final File requestFile;
     private final File responseFile;
+    private long[] requestArr;
+    private long[] responseArr;
+    private final String logPrefix;
 
-    SingleClient(Scanner scanner, SocketChannel conn, File requestFile, File responseFile) {
-        this.scanner = scanner;
+    SingleClient(String logPrefix, SocketChannel conn, File requestFile, File responseFile) {
         this.conn = conn;
         this.requestFile = requestFile;
         this.responseFile = responseFile;
+        this.logPrefix = logPrefix;
     }
 
-    @Override
+    private void Log(String message){
+        System.out.println(logPrefix +" "+ message);
+    }
+
     public long Run() {
         Scanner fileScanner;
         try {
             fileScanner = new Scanner(requestFile);
         } catch (FileNotFoundException e) {
-            System.out.println("File not found!");
+            Log("File not found!");
             return -1;
         }
         int threads;
         try {
             threads = fileScanner.nextInt();
         } catch (NumberFormatException e) {
-            System.out.println("Invalid file format! First thing in the file must be the number of threads!");
+            Log("Invalid file format! First thing in the file must be the number of threads!");
             return -1;
         }
 
@@ -42,7 +47,14 @@ public class SingleClient implements Client {
         try {
             len = fileScanner.nextInt();
         } catch (NumberFormatException e) {
-            System.out.println("Invalid file format! Second thing in the file must be the length of the array!");
+            Log("Invalid file format! Second thing in the file must be the length of the array!");
+            return -1;
+        }
+
+        try{
+            requestArr = new long[len];
+        } catch (OutOfMemoryError e) {
+            Log("Out of memory");
             return -1;
         }
 
@@ -54,11 +66,11 @@ public class SingleClient implements Client {
         try {
             int n = conn.write(buf);
             if (n == -1) {
-                System.out.println("The connection is closed!");
+                Log("The connection is closed!");
                 return -1;
             }
         } catch (IOException e) {
-            System.out.println("Error while sending the thread number and the array len: " + e.getMessage());
+            Log("Error while sending the thread number and the array len: " + e.getMessage());
             return -1;
         }
 
@@ -68,23 +80,24 @@ public class SingleClient implements Client {
             try {
                 el = fileScanner.nextLong();
             } catch (NumberFormatException e) {
-                System.out.println("Invalid file format! The element with index " + i + " in the file must be a number!");
+                Log("Invalid file format! The element with index " + i + " in the file must be a number!");
                 return -1;
             }
+            requestArr[i] = el;
             buf.putLong(el);
             if (buf.position() + 8 > buf.limit() || i + 1 == len) {
                 buf.flip();
                 try {
                     int n = conn.write(buf);
                     if (n == -1) {
-                        System.out.println("The connection is closed!");
+                        Log("The connection is closed!");
                         return -1;
                     }
                 } catch (IOException e) {
-                    System.out.println("Error while sending elements: " + e.getMessage());
+                    Log("Error while sending elements: " + e.getMessage());
                     return -1;
                 } catch (Exception e) {
-                    System.out.println("some thing");
+                    Log("some thing");
                 }
                 buf.compact();
             }
@@ -96,13 +109,14 @@ public class SingleClient implements Client {
         try {
             int n = conn.read(buf);
             if (n == -1) {
-                System.out.println("The connection is closed!");
+                Log("The connection is closed!");
                 return -1;
             }
         } catch (IOException e) {
-            System.out.println("Error while reading the status code: " + e.getMessage());
+            Log("Error while reading the status code: " + e.getMessage());
             return -1;
         }
+
         long end = System.currentTimeMillis();
         buf.flip();
         byte code = buf.get();
@@ -111,7 +125,7 @@ public class SingleClient implements Client {
             byte[] bytes = new byte[buf.remaining()];
             buf.get(bytes);
             String msg = new String(bytes);
-            System.out.println("Status code " + code + " message " + msg);
+            Log("Status code " + code + " message " + msg);
             return -1;
         }
 
@@ -121,11 +135,11 @@ public class SingleClient implements Client {
             try {
                 int n = conn.read(buf);
                 if (n == -1) {
-                    System.out.println("The connection is closed!");
+                    Log("The connection is closed!");
                     return -1;
                 }
             } catch (IOException e) {
-                System.out.println("Error while reading the status code: " + e.getMessage());
+                Log("Error while reading the status code: " + e.getMessage());
                 return -1;
             }
             buf.flip();
@@ -133,7 +147,14 @@ public class SingleClient implements Client {
 
         int len2 = buf.getInt();
         if (len != len2) {
-            System.out.println("Len in the request(" + len + ") does not match len int response(" + len2 + ")");
+            Log("Len in the request(" + len + ") does not match len int response(" + len2 + ")");
+            return -1;
+        }
+
+        try{
+            responseArr = new long[len2];
+        } catch (OutOfMemoryError e) {
+            Log("Out of memory");
             return -1;
         }
 
@@ -141,14 +162,14 @@ public class SingleClient implements Client {
         try {
             writer = new FileWriter(responseFile);
         } catch (IOException e) {
-            System.out.println("Error while opening the response file: " + e.getMessage());
+            Log("Error while opening the response file: " + e.getMessage());
             return -1;
         }
 
         try {
             writer.write(len + "\n");
         } catch (IOException e) {
-            System.out.println("Error while writing the response file");
+            Log("Error while writing the response file");
             return -1;
         }
 
@@ -158,31 +179,38 @@ public class SingleClient implements Client {
                 try {
                     int n = conn.read(buf);
                     if (n == -1) {
-                        System.out.println("The connection is closed!");
+                        Log("The connection is closed!");
                         return -1;
                     }
                 } catch (IOException e) {
-                    System.out.println("Error while reading the status code: " + e.getMessage());
+                    Log("Error while reading the status code: " + e.getMessage());
                     return -1;
                 }
                 buf.flip();
             }
             el = buf.getLong();
+            responseArr[i] = el;
             try {
                 writer.write(el + " ");
             } catch (IOException e) {
-                System.out.println("Error while writing the response file");
+                Log("Error while writing the response file");
                 return -1;
             }
         }
         try {
             conn.close();
             writer.close();
-            scanner.close();
             fileScanner.close();
         } catch (IOException e) {
-            System.out.println("Error while closing!");
+            Log("Error while closing!");
         }
+
+        ResultChecker checker = new ResultChecker(requestArr, responseArr);
+
+        if (!checker.IsCorrect()){
+            return  -1;
+        }
+
         return end - start;
     }
 }
