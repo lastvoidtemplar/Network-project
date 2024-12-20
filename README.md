@@ -49,4 +49,4 @@ The client is a simple CLI application which has 4 options.
 
 ### Option 1
 
-![option 1 example](http://url/to/img.png)
+![option 1 example](https://github.com/lastvoidtemplar/Network-project/blob/main/examples/option1.png)
