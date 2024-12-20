@@ -4,7 +4,7 @@
 
 The project is a simple client-server application that parallel sorts an array of 64-bits interger.
 The client and the server are written in Java(openjdk-23) and they are tested on Linux(Debian 12).
-
+Github repository [here](https://github.com/lastvoidtemplar/Network-project).
 ## Protocol
 
 The protocol is a simple binary protocol with request-response.
@@ -57,3 +57,8 @@ The client is a simple CLI application which has 4 options.
 
 ### Server logs
 
+![server log 1 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/server%20log1.png)
+
+![server log 2 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/server%20log2.png)
+
+![server log 3 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/server%20log3.png)
