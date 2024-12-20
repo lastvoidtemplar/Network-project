@@ -7,13 +7,13 @@ The client and the server are written in Java(openjdk-23) and they are tested on
 
 ## Protocol
 
-The protocol is simple a binary protocol with request-response.
+The protocol is a simple binary protocol with request-response.
 
 ### Request
 
-- the first 4 bytes are for a 32-bits signed integer that says how many threads the server must use.
-- the next 4 bytes are for a 32-bits signed integer that specifies the length of the input array.
-- every next 8 bytes are for a 64-bits signed integer which corresponds to a number in the input array.
+- the first 4 bytes are for a 32-bit signed integer that says how many threads the server must use.
+- the next 4 bytes are for a 32-bit signed integer that specifies the length of the input array.
+- every next 8 bytes are for a 64-bit signed integer which corresponds to a number in the input array.
 
 ### Response
 
@@ -23,8 +23,8 @@ The protocol is simple a binary protocol with request-response.
   - 2 - Invalid length of the array
   - 3 - Server error
 - if the status code is different from Ok, the next bytes are an error message.
-- if the status code is Ok, the next 4 bytes are for  a 32-bits signed integer that specifies the length of the sorted output array.
-- if the status code is Ok, every next 8 bytes after the length are for a 64-bits signed integer which corresponds to a interger in the sorted output array.
+- if the status code is Ok, the next 4 bytes are for a 32-bit signed integer that specifies the length of the sorted output array.
+- if the status code is Ok, every next 8 bytes after the length are for a 64-bit signed integer which corresponds to a interger in the sorted output array.
 
 ## Server
 
