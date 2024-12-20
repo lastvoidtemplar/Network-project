@@ -13,7 +13,7 @@ public class Main {
     private static void printClientOptions() {
         System.out.println("Choose client option:");
         System.out.println("1.  Run single client with given request file.");
-        System.out.println("1.  Run multiple clients in parallel with given request file and display info about min/arg/max.");
+        System.out.println("2.  Run multiple clients in parallel with given request file and display info about min/arg/max.");
         System.out.println("3.  Run multiple clients in parallel with given request file");
         System.out.println("4.  Run multiple clients in in sequence(noisy neighbor) with large array and compare the time for 1..N threads");
         System.out.println("---");

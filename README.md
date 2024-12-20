@@ -47,6 +47,13 @@ The client is a simple CLI application which has 4 options.
 
 ## Examples
 
-### Option 1
+### Client examples
 
 ![option 1 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/option1.png)
+
+![option 2 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/option2.png)
+
+![option 4 example](https://raw.githubusercontent.com/lastvoidtemplar/Network-project/refs/heads/main/examples/option4.png)
+
+### Server logs
+

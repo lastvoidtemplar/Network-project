@@ -46,7 +46,7 @@ public class AggregateClient {
             }
         }
 
-        System.out.println("Min/avg/max - " + minTime + "ms/" + sum / c + "ms/" + maxTime + "ms and " + errors + "errors from " + clients.length + "clients!");
+        System.out.println("Min/avg/max - " + minTime + "ms/" + sum / c + "ms/" + maxTime + "ms and " + errors + " errors from " + clients.length + " clients!");
 
         return times;
     }
